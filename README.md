@@ -4,7 +4,7 @@ Control a Raspberry Pi Pico 2 W's onboard LED by talking to an AI agent. Send a 
 
 The device is **self-describing** — it tells the agent what commands it supports at connect time. No server configuration, no redeployment. Plug it in, connect to WiFi, and your agent discovers it automatically.
 
-Built with [Lua AI](https://heylua.ai) Devices and MicroPython.
+Built with [Lua AI](https://heylua.ai) Devices, the [`lua_device` MicroPython library](https://docs.heylua.ai/devices/micropython-client), and MicroPython.
 
 ## What You'll Build
 
@@ -133,10 +133,11 @@ DEVICE_NAME = "pico-led"           # Keep this as-is
 
 ## Part 5: Upload and Run
 
-Upload the three files to the Pico:
+Upload the files to the Pico:
 
 ```bash
 python3 -m mpremote connect auto cp main.py :main.py
+python3 -m mpremote connect auto cp lua_device.py :lua_device.py
 python3 -m mpremote connect auto cp websocket_mqtt.py :websocket_mqtt.py
 python3 -m mpremote connect auto cp config.py :config.py
 ```
