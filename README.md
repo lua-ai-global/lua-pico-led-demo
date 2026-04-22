@@ -100,12 +100,19 @@ python3 -m mpremote connect auto exec "import sys; print(sys.implementation)"
 
 You should see `micropython` and `Raspberry Pi Pico 2 W` in the output.
 
-## Part 3: Install the MQTT Library
+## Part 3: Install Libraries
 
-The Pico needs the `umqtt.simple` library for MQTT communication:
+The Pico needs two libraries. Install them via `mpremote`:
 
 ```bash
 python3 -m mpremote connect auto mip install umqtt.simple
+```
+
+Then download the Lua device client library onto the Pico:
+
+```bash
+curl -sL https://raw.githubusercontent.com/lua-ai-global/lua-core-services/main/packages/lua-device-client/micropython/lua_device.py -o lua_device.py
+python3 -m mpremote connect auto cp lua_device.py :lua_device.py
 ```
 
 > **Note:** If you don't have `mpremote`, install it with `pip3 install mpremote`.
@@ -137,7 +144,6 @@ Upload the files to the Pico:
 
 ```bash
 python3 -m mpremote connect auto cp main.py :main.py
-python3 -m mpremote connect auto cp lua_device.py :lua_device.py
 python3 -m mpremote connect auto cp config.py :config.py
 ```
 
@@ -151,8 +157,9 @@ The Pico will:
 1. Connect to WiFi
 2. Establish an MQTT WebSocket connection to `mqtt.heylua.ai`
 3. Send its command manifest to your agent
-4. Blink 3 times to signal it's ready
-5. Wait for commands
+4. Wait for commands
+
+The library handles all connection logic, heartbeats, reconnection with exponential backoff, and automatic device reset after repeated failures.
 
 ## Part 6: Test It
 
