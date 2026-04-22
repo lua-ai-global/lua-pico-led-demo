@@ -2,7 +2,8 @@
 Lua AI Pico 2 W LED Controller
 
 Controls the onboard LED via commands from a Lua AI agent.
-Copy config.example.py to config.py and fill in your credentials.
+Setup: copy config.example.py to config.py, fill in your credentials,
+then upload main.py, lua_device.py, and config.py to the Pico.
 """
 
 import machine

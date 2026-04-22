@@ -4,7 +4,7 @@ Control a Raspberry Pi Pico 2 W's onboard LED by talking to an AI agent. Send a 
 
 The device is **self-describing** — it tells the agent what commands it supports at connect time. No server configuration, no redeployment. Plug it in, connect to WiFi, and your agent discovers it automatically.
 
-Built with [Lua AI](https://heylua.ai) Devices, the [`lua_device` MicroPython library](https://docs.heylua.ai/devices/micropython-client), and MicroPython.
+Built with [Lua AI](https://heylua.ai) Devices and the [`lua_device` MicroPython library](https://docs.heylua.ai/devices/micropython-client).
 
 ## What You'll Build
 
@@ -100,29 +100,27 @@ python3 -m mpremote connect auto exec "import sys; print(sys.implementation)"
 
 You should see `micropython` and `Raspberry Pi Pico 2 W` in the output.
 
-## Part 3: Install Libraries
+## Part 3: Install MQTT Library
 
-Install the required libraries onto the Pico via `mpremote`:
+The Pico needs the `umqtt.simple` library for MQTT communication:
 
 ```bash
 python3 -m mpremote connect auto mip install umqtt.simple
-python3 -m mpremote connect auto mip install github:lua-ai-global/lua-pico-led-demo/pico/lua_device.py
 ```
-
-This installs the MQTT library and the Lua device client directly onto the Pico.
 
 > **Note:** If you don't have `mpremote`, install it with `pip3 install mpremote`.
 
-## Part 4: Configure the Pico
+## Part 4: Configure Credentials
 
-Copy the config template and fill in your values:
+Clone this repo (if you haven't already), then create your config file:
 
 ```bash
-cd pico/
+git clone https://github.com/lua-ai-global/lua-pico-led-demo.git
+cd lua-pico-led-demo/pico
 cp config.example.py config.py
 ```
 
-Edit `config.py`:
+Edit `config.py` with your values:
 
 ```python
 WIFI_SSID = "MyWiFi"              # Your 2.4 GHz WiFi network name
@@ -136,14 +134,15 @@ DEVICE_NAME = "pico-led"           # Keep this as-is
 
 ## Part 5: Upload and Run
 
-Upload the files to the Pico:
+Upload all three files to the Pico:
 
 ```bash
+python3 -m mpremote connect auto cp lua_device.py :lua_device.py
 python3 -m mpremote connect auto cp main.py :main.py
 python3 -m mpremote connect auto cp config.py :config.py
 ```
 
-Reset the Pico to run `main.py`:
+Reset the Pico to start:
 
 ```bash
 python3 -m mpremote connect auto reset
@@ -162,7 +161,7 @@ The library handles all connection logic, heartbeats, reconnection with exponent
 Go back to your agent project directory and chat:
 
 ```bash
-cd ../pico-agent
+cd ../../pico-agent
 lua chat --env production -m "turn on the LED"
 lua chat --env production -m "blink the LED 5 times"
 lua chat --env production -m "what is the device status?"
@@ -235,6 +234,7 @@ The Pico is **self-describing**: at connect time, it publishes a JSON manifest l
 
 - [Lua Devices Documentation](https://docs.heylua.ai/devices/overview)
 - [Self-Describing Commands](https://docs.heylua.ai/devices/self-describing-commands)
+- [MicroPython Client Reference](https://docs.heylua.ai/devices/micropython-client)
 - [MQTT Protocol Reference](https://docs.heylua.ai/devices/mqtt-client)
 - [Build Your Own Client](https://docs.heylua.ai/devices/build-your-own)
 - [Node.js Device Client](https://www.npmjs.com/package/@lua-ai-global/device-client) (`npm install @lua-ai-global/device-client`)
