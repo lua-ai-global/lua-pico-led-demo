@@ -138,7 +138,6 @@ Upload the files to the Pico:
 ```bash
 python3 -m mpremote connect auto cp main.py :main.py
 python3 -m mpremote connect auto cp lua_device.py :lua_device.py
-python3 -m mpremote connect auto cp websocket_mqtt.py :websocket_mqtt.py
 python3 -m mpremote connect auto cp config.py :config.py
 ```
 
