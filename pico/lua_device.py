@@ -1,8 +1,12 @@
 """
 Lua Device Client for MicroPython (Raspberry Pi Pico W)
 
-Connects to the Lua AI platform via MQTT, enabling agents to send
-commands to and receive triggers from constrained IoT devices.
+Single-file client that connects to the Lua AI platform via MQTT
+over WebSocket, enabling agents to send commands to and receive
+triggers from constrained IoT devices.
+
+Handles WiFi, MQTT, WebSocket transport, self-describing command
+manifests, heartbeats, reconnection, and command deduplication.
 
 Usage:
     from lua_device import LuaDevice
@@ -11,15 +15,15 @@ Usage:
         agent_id="baseAgent_agent_123",
         api_key="api_your_key",
         device_name="pico-sensor",
-        server="mqtt.heylua.ai",
+        wifi_ssid="MyNetwork",
+        wifi_password="MyPassword",
     )
 
-    @device.command("read_sensor")
+    @device.command("read_sensor", description="Read temperature")
     def read_sensor(payload):
         return {"temperature": 22.5, "humidity": 60}
 
-    device.connect()
-    device.run()  # blocks, handles commands
+    device.run()  # connects WiFi + MQTT, blocks, handles commands
 """
 
 import json
@@ -210,11 +214,15 @@ class _WebSocketMQTT:
 
 
 class LuaDevice:
-    def __init__(self, agent_id, api_key, device_name, server="mqtt.heylua.ai",
-                 port=443, group=None, use_ssl=True, websocket=True):
+    def __init__(self, agent_id, api_key, device_name,
+                 wifi_ssid=None, wifi_password=None,
+                 server="mqtt.heylua.ai", port=443,
+                 group=None, use_ssl=True, websocket=True):
         self.agent_id = agent_id
         self.api_key = api_key
         self.device_name = device_name
+        self.wifi_ssid = wifi_ssid
+        self.wifi_password = wifi_password
         self.server = server
         self.port = port
         self.group = group
@@ -255,8 +263,34 @@ class LuaDevice:
         if inputSchema:
             self._commands[name]["inputSchema"] = inputSchema
 
+    def _connect_wifi(self):
+        """Connect to WiFi if credentials were provided."""
+        if not self.wifi_ssid:
+            return
+        import network
+        wlan = network.WLAN(network.STA_IF)
+        wlan.active(True)
+        if wlan.isconnected():
+            print("[lua-device] WiFi already connected:", wlan.ifconfig()[0])
+            return
+        print("[lua-device] Connecting to WiFi", self.wifi_ssid, end="")
+        wlan.connect(self.wifi_ssid, self.wifi_password)
+        for _ in range(30):
+            if wlan.isconnected():
+                break
+            print(".", end="")
+            time.sleep(1)
+        if wlan.isconnected():
+            print(" OK!", wlan.ifconfig()[0])
+        else:
+            print(" FAILED")
+            import machine
+            machine.reset()
+
     def connect(self):
-        """Connect to the MQTT broker with LWT for disconnect detection."""
+        """Connect to WiFi (if configured) and MQTT broker."""
+        self._connect_wifi()
+
         will_topic = self._topic_prefix + "status"
         will_msg = json.dumps({"status": "offline", "timestamp": str(time.time())})
 
@@ -428,16 +462,17 @@ class LuaDevice:
 
     def run(self, check_interval_ms=100):
         """
-        Main loop — checks for incoming messages and sends heartbeats.
-        Blocks forever. Call this after connect() and registering commands.
+        Connect (if not already) and run the main loop.
+        Blocks forever, handling commands, heartbeats, and reconnection.
         """
+        if not self._connected:
+            self.connect()
+
         print("[lua-device] Listening for commands...")
-        while self._connected:
+        while True:
             try:
-                # Check for incoming messages (non-blocking)
                 self._client.check_msg()
 
-                # Send heartbeat every 30s
                 now = time.time()
                 if now - self._last_heartbeat >= self._heartbeat_interval:
                     self._client.publish(
@@ -447,18 +482,14 @@ class LuaDevice:
                     )
                     self._last_heartbeat = now
 
-                # Clean expired dedup entries periodically
                 if len(self._seen_ids) > 100:
                     self._clean_dedup()
 
                 time.sleep_ms(check_interval_ms)
 
-            except OSError as e:
-                print("[lua-device] Connection lost:", e)
-                self._reconnect()
             except Exception as e:
-                print("[lua-device] Error:", e)
-                time.sleep(1)
+                print("[lua-device] Connection lost:", type(e).__name__, e)
+                self._reconnect()
 
     def _on_message(self, topic, msg):
         """Callback for incoming MQTT messages."""
@@ -534,31 +565,26 @@ class LuaDevice:
         )
 
     def _reconnect(self):
-        """Attempt to reconnect with exponential backoff."""
+        """Reconnect WiFi + MQTT with exponential backoff. Resets device after 10 failures."""
         self._connected = False
-        delay = 1
+        delay = 2
         max_delay = 30
         attempts = 0
-        while not self._connected:
+        while True:
+            attempts += 1
+            print("[lua-device] Reconnecting in", delay, "s... (attempt {}/10)".format(attempts))
+            time.sleep(delay)
             try:
-                print("[lua-device] Reconnecting in", delay, "s...")
-                time.sleep(delay)
-                will_topic = self._topic_prefix + "status"
-                will_msg = json.dumps({"status": "offline", "timestamp": str(time.time())})
-                if self.websocket:
-                    self._connect_websocket(will_topic, will_msg)
-                else:
-                    self._connect_tcp(will_topic, will_msg)
-                self._connected = True
-                self.connect()  # Re-subscribe and re-publish status
-                print("[lua-device] Reconnected")
+                self._connect_wifi()
+                self.connect()
+                print("[lua-device] Reconnected successfully")
+                return
             except Exception as e:
-                attempts += 1
                 print("[lua-device] Reconnect failed:", e)
                 delay = min(delay * 2, max_delay)
                 if attempts >= 10:
                     import machine
-                    print("[lua-device] Too many failures, resetting...")
+                    print("[lua-device] Too many failures, resetting device...")
                     machine.reset()
 
     def _clean_dedup(self):
