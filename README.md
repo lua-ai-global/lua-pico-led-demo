@@ -102,18 +102,14 @@ You should see `micropython` and `Raspberry Pi Pico 2 W` in the output.
 
 ## Part 3: Install Libraries
 
-The Pico needs two libraries. Install them via `mpremote`:
+Install the required libraries onto the Pico via `mpremote`:
 
 ```bash
 python3 -m mpremote connect auto mip install umqtt.simple
+python3 -m mpremote connect auto mip install github:lua-ai-global/lua-pico-led-demo/pico/lua_device.py
 ```
 
-Then download the Lua device client library onto the Pico:
-
-```bash
-curl -sL https://raw.githubusercontent.com/lua-ai-global/lua-core-services/main/packages/lua-device-client/micropython/lua_device.py -o lua_device.py
-python3 -m mpremote connect auto cp lua_device.py :lua_device.py
-```
+This installs the MQTT library and the Lua device client directly onto the Pico.
 
 > **Note:** If you don't have `mpremote`, install it with `pip3 install mpremote`.
 
